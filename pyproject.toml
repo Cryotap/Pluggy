@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "endstone-pluggy"
+version = "0.1.0"
+description = "Python plugin and permission manager for endstone"
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["endstone", "plugin", "plugin manager", "manager", "permission manager"]
+
+[project.entry-points."endstone"]
+motde = "endstone_pluggy:Pluggy"
