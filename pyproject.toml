@@ -11,4 +11,4 @@ license = { file = "LICENSE" }
 keywords = ["endstone", "plugin", "plugin manager", "manager", "permission manager"]
 
 [project.entry-points."endstone"]
-motde = "endstone_pluggy:Pluggy"
+pluggy = "endstone_pluggy:Pluggy"
