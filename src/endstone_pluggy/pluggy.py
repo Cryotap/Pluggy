@@ -76,9 +76,9 @@ class Pluggy(Plugin):
         )
         for v in plugs:
             if self.server.plugin_manager.is_plugin_enabled(v):
-                h.add_control(Toggle(str(v), default_value=True))
+                h.add_control(Toggle(f"{ColorFormat.BLUE}" + str(v), default_value=True))
             else:
-                h.add_control(Toggle(str(v), default_value=True))
+                h.add_control(Toggle(f"{ColorFormat.RED}" + str(v), default_value=False))
         user.send_form(h)
 
     def pload(self, user):
@@ -190,7 +190,7 @@ class Pluggy(Plugin):
 
     def pdloadform(self, user):
         h = ModalForm(
-            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Permission Remover{ColorFormat.RESET}",
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Plugin Downloader{ColorFormat.RESET}",
             controls=[
                 TextInput(placeholder="Plugin Name"),
                 TextInput(placeholder="Version"),
@@ -204,11 +204,86 @@ class Pluggy(Plugin):
         )
         user.send_form(h)
 
+    def penableform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Plugin Enabler{ColorFormat.RESET}",
+            controls=[
+                TextInput(placeholder="Plugin Name")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Download & Load",
+            on_submit=lambda player, data: self.penable(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Downloader Closed"
+            ),
+        )
+        user.send_form(h)
+
+    def pdisableform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Plugin Disabler{ColorFormat.RESET}",
+            controls=[
+                TextInput(placeholder="Plugin Name")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Download & Load",
+            on_submit=lambda player, data: self.pdisable(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Downloader Closed"
+            ),
+        )
+        user.send_form(h)
+        pass
+
+    def penable(self, user, data):
+        if data[0]:
+            if self.server.plugin_manager.get_plugin(data[0]):
+                if not self.server.plugin_manager.is_plugin_enabled(data[0]):
+                    self.server.plugin_manager.enable_plugin(data[0])
+                    user.send_message(f"{ColorFormat.MATERIAL_GOLD}Plugin Enabled")
+                else:
+                    user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is already enabled!")
+            else:
+                user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin not loaded!")
+        else:
+            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin name please!")
+
+    def pdisable(self, user, data):
+        if data[0]:
+            if self.server.plugin_manager.get_plugin(data[0]):
+                if self.server.plugin_manager.is_plugin_enabled(data[0]):
+                    self.server.plugin_manager.disable_plugin(data[0])
+                    user.send_message(f"{ColorFormat.MATERIAL_GOLD}Plugin Disabled")
+                else:
+                    user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is already disabled!")
+            else:
+                user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is not loaded")
+        else:
+            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin name please!")
+
+    def pmenable(self, user):
+        self.server.plugin_manager.enable_plugins()
+        user.send_message(f"{ColorFormat.MATERIAL_GOLD}Done!")
+
+    def pmdisable(self, user):
+        self.server.plugin_manager.disable_plugins()
+        user.send_message(f"{ColorFormat.MATERIAL_GOLD}Done!")
+
     def mainformcheck(self, user, sel):
         if sel == "Plugin List":
             if user.has_permission("pluggy.list"):
                 self.plistform(user)
-        elif sel == "Plugin Full Load":
+        elif sel == "Plugin Disable":
+            if user.has_permission("pluggy.plugin.toggle"):
+                self.pdisableform(user)
+        elif sel == "Plugin Enable":
+            if user.has_permission("pluggy.plugin.toggle"):
+                self.penableform(user)
+        elif sel == "Plugin Mass Disable":
+            if user.has_permission("pluggy.plugin.toggle"):
+                self.pmdisable(user)
+        elif sel == "Plugin Mass Enable":
+            if user.has_permission("pluggy.plugin.toggle"):
+                self.pmenable(user)
+        elif sel == "Plugin Mass Load":
             if user.has_permission("pluggy.plugin.toggle"):
                 self.pload(user)
         elif sel == "Plugin Downloader":
@@ -230,7 +305,9 @@ class Pluggy(Plugin):
             buttons=[
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin List{cf.RESET}",
                                   icon="https://cdn2.iconfinder.com/data/icons/flat-database/512/connect-512.png"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Full Load{cf.RESET}"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Disable{cf.RESET}"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Enable{cf.RESET}"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Mass Load{cf.RESET}"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}User Perms{cf.RESET}"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Add User Perms{cf.RESET}"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Remove User Perms{cf.RESET}"),
