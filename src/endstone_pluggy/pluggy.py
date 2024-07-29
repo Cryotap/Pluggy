@@ -2,6 +2,9 @@ from endstone.plugin import *
 from endstone import ColorFormat
 from endstone.command import *
 from endstone.form import *
+import urllib.error
+import urllib.response
+import urllib.request
 
 
 class Pluggy(Plugin):
@@ -16,9 +19,9 @@ class Pluggy(Plugin):
     def on_disable(self) -> None:
         self.logger.info("on_disable is called!")
 
-    name = "Pluggy"
+    prefix = "Pluggy"
     version = "0.1.0"
-    api_version = "0.4"
+    api_version = "0.5"
     description = "Python plugin manager for Endstone!"
 
     commands = {
@@ -30,12 +33,14 @@ class Pluggy(Plugin):
     }
 
     permissions = {
-        "pluggy.command.use": {
+        "pluggy.command.all": {
             "description": "Allow users to use the plugin manager form.",
-            "default": True,
+            "default": False,
             "children": {
+                "pluggy.command.use": True,
                 "pluggy.list": True,
                 "pluggy.plugin.toggle": "op",
+                "pluggy.plugin.download": "op",
                 "pluggy.perms.list": True,
                 "pluggy.perms.toggle": "op",
             },
@@ -79,7 +84,7 @@ class Pluggy(Plugin):
 
     def auperm(self, user, data):
         perm = str(data[0])
-        p = self.server.get_player(user)
+        p = user
         t = self.server.get_player(str(data[1]))
         if not t.has_permission(perm):
             p.add_attachment(perm, True)
@@ -91,7 +96,7 @@ class Pluggy(Plugin):
 
     def ruperm(self, user, data):
         perm = str(data[0])
-        p = self.server.get_player(user)
+        p = user
         t = self.server.get_player(str(data[1]))
         if t.has_permission(perm):
             t.add_attachment(perm, False)
@@ -159,13 +164,52 @@ class Pluggy(Plugin):
         )
         user.send_form(h)
 
+    def pdload(self, user, data):
+        if data[0]:
+            if data[2]:
+                user.send_message(f"{ColorFormat.MATERIAL_GOLD}Downloading...")
+                try:
+                    if data[1]:
+                        url = "https://github.com/" + str(data[2]) + "/" + str(data[1]) + "/" + "endstone_" + str(data[0]).lower() + "-" + str(data(1)) + "-py2.py3-none-any.whl/"
+                        urllib.request.urlretrieve(url, "plugins/" + "endstone_" + str(data[0]).lower() + "-" + str(data(1)) + "-py2.py3-none-any.whl/")
+                    else:
+                        user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Please enter the version!")
+                except urllib.error.URLError as e:
+                    user.send_error_message(str(e))
+                    user.send_message(f"{ColorFormat.RED}Make sure the repo you are using has its tags formatted as the version\nfor example if it was version 0.1.0, it shouldn't say v0.1.0, it should say 0.1.0")
+                else:
+                    user.send_message(f"{ColorFormat.MATERIAL_EMERALD}Done! Please the delete the current version and then click Plugin Full Load!")
+            else:
+                user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Please enter the author name!")
+        else:
+            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Please enter the plugin name!")
+
+    def pdloadform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Permission Remover{ColorFormat.RESET}",
+            controls=[
+                TextInput(placeholder="Plugin Name"),
+                TextInput(placeholder="Version"),
+                TextInput(placeholder="Author Name")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Download & Load",
+            on_submit=lambda player, data: self.pdload(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Downloader Closed"
+            ),
+        )
+        user.send_form(h)
+
     def mainformcheck(self, user, sel):
         if sel == "Plugin List":
             if user.has_permission("pluggy.list"):
                 self.plistform(user)
-        elif sel == "Plugin Loader":
+        elif sel == "Plugin Full Load":
             if user.has_permission("pluggy.plugin.toggle"):
                 self.pload(user)
+        elif sel == "Plugin Downloader":
+            if user.has_permission("pluggy.plugin.download"):
+                self.pdloadform(user)
         elif sel == "User Perms":
             if user.has_permission("pluggy.perms.list"):
                 self.lupermsform(user)
@@ -182,7 +226,7 @@ class Pluggy(Plugin):
             buttons=[
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin List{cf.RESET}",
                                   icon="https://cdn2.iconfinder.com/data/icons/flat-database/512/connect-512.png"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Loader{cf.RESET}"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Full Load{cf.RESET}"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}User Perms{cf.RESET}"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Add User Perms{cf.RESET}"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Remove User Perms{cf.RESET}"),

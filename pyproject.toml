@@ -5,6 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "endstone-pluggy"
 version = "0.1.0"
+authors = [{name="Cryotap"}]
 description = "Python plugin and permission manager for endstone"
 readme = "README.md"
 license = { file = "LICENSE" }
