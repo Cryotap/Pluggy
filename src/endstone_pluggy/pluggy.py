@@ -295,6 +295,9 @@ class Pluggy(Plugin):
         elif sel == "Add User Perms":
             if user.has_permission("pluggy.perms.toggle"):
                 self.aupermform(user)
+        elif sel == "Experimental Features":
+            if user.has_permission("pluggy.plugin.toggle"):
+                user.send_message(f"{ColorFormat.MATERIAL_IRON}Nothing to see yet!")
         else:
             if user.has_permission("pluggy.perms.toggle"):
                 self.rupermform(user)
@@ -304,13 +307,21 @@ class Pluggy(Plugin):
             title=str(f"{cf.BOLD}{cf.MATERIAL_AMETHYST}Pluggy Menu{cf.RESET}"),
             buttons=[
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin List{cf.RESET}",
-                                  icon="https://cdn2.iconfinder.com/data/icons/flat-database/512/connect-512.png"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Disable{cf.RESET}"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Enable{cf.RESET}"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Mass Load{cf.RESET}"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}User Perms{cf.RESET}"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Add User Perms{cf.RESET}"),
-                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Remove User Perms{cf.RESET}"),
+                                  icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Disable{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Enable{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Mass Load{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}User Perms{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/285646/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Add User Perms{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/285646/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Remove User Perms{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/285646/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Experimental Features{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/7479649/download/png/512")
             ],
             on_submit=lambda player, selection: self.mainformcheck(uname, f"{selection}"),
             on_close=lambda player: player.send_message(f"{ColorFormat.RED}Pluggy Menu closed!"),
