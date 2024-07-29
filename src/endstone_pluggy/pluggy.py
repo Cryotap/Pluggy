@@ -33,7 +33,11 @@ class Pluggy(Plugin):
     }
 
     permissions = {
-        "pluggy.command.all": {
+        "pluggy.command.use": {
+            "description": "Allow users to use the plugin manager form.",
+            "default": True,
+        },
+        "pluggy.subs": {
             "description": "Allow users to use the plugin manager form.",
             "default": False,
             "children": {
