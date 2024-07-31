@@ -1,7 +1,10 @@
+import json
 from endstone.plugin import *
 from endstone import ColorFormat
 from endstone.command import *
 from endstone.form import *
+from endstone.permissions import *
+from endstone import Player
 import urllib.error
 import urllib.response
 import urllib.request
@@ -19,6 +22,7 @@ class Pluggy(Plugin):
     def on_disable(self) -> None:
         self.logger.info("on_disable is called!")
 
+    name = "pluggy"
     prefix = "Pluggy"
     version = "0.1.0"
     api_version = "0.5"
@@ -37,48 +41,65 @@ class Pluggy(Plugin):
             "description": "Allow users to use the plugin manager form.",
             "default": True,
         },
-        "pluggy.subs": {
-            "description": "Allow users to use the plugin manager form.",
-            "default": False,
-            "children": {
-                "pluggy.command.use": True,
-                "pluggy.list": True,
-                "pluggy.plugin.toggle": "op",
-                "pluggy.plugin.download": "op",
-                "pluggy.perms.list": True,
-                "pluggy.perms.toggle": "op",
-            },
+        "pluggy.list": {
+            "description": "Allow users to use the plugin manager plugin list.",
+            "default": True,
+        },
+        "pluggy.plugin.toggle": {
+            "description": "Allow users to enable and disable plugins.",
+            "default": "op",
+        },
+        "pluggy.plugin.download": {
+            "description": "Allow users to download plugins.",
+            "default": "op",
+        },
+        "pluggy.perms.list": {
+            "description": "Allow users to list user perms.",
+            "default": True,
+        },
+        "pluggy.perms.toggle": {
+            "description": "Allow users to add and remove user perms.",
+            "default": "op",
         },
     }
 
-    def edplugs(self, user, data, plugs):
+    def edplugs(self, user, data):
         if user.has_permission("pluggy.plugin.toggle"):
-            for v in plugs:
-                for d in data:
-                    if not d:
-                        if self.server.plugin_manager.is_plugin_enabled(str(v)):
-                            self.server.plugin_manager.disable_plugin(v)
-                            user.send_message(f"{ColorFormat.RED}Plugin {v} has been disabled!")
+            if data is not None:
+                plugs = self.server.plugin_manager.plugins
+                for index, value in enumerate(json.loads(data)):
+                    plugin = plugs[index]
+                    print(plugin.name)
+                    print(value)
+                    if not value:
+                        if self.server.plugin_manager.is_plugin_enabled(plugin):
+                            self.server.plugin_manager.disable_plugin(plugin)
+                            user.send_message(f"{ColorFormat.RED}Plugin {str(plugin.name)} is disabled!{ColorFormat.RESET}")
                     else:
-                        if not self.server.plugin_manager.is_plugin_enabled(str(v)):
-                            self.server.plugin_manager.enable_plugin(v)
-                            user.send_message(f"{ColorFormat.RED}Plugin {v} has been enabled!")
+                        if self.server.plugin_manager.is_plugin_enabled(plugin):
+                            self.server.plugin_manager.enable_plugin(plugin)
+                            user.send_message(f"{ColorFormat.MATERIAL_EMERALD}Plugin {str(plugin.name)} is enabled!{ColorFormat.RESET}")
+            else:
+                user.send_message(f"{ColorFormat.RED}Data missing!")
+        else:
+            user.send_message(f"{ColorFormat.RED}Permission pluggy.plugin.toggle is missing!")
 
     def plistform(self, user, cf=cf):
         plugs = self.server.plugin_manager.plugins
         h = ModalForm(
             title=f"{cf.BOLD}{cf.MATERIAL_NETHERITE}Plugins",
             controls=[],
-            on_submit=lambda player, data: self.edplugs(user, data, plugs),
+            on_submit=lambda player, data: self.edplugs(user, data),
             on_close=lambda player: player.send_message(
                 f"{ColorFormat.RED}Plugin list closed"
             ),
         )
         for v in plugs:
             if self.server.plugin_manager.is_plugin_enabled(v):
-                h.add_control(Toggle(f"{ColorFormat.BLUE}" + str(v), default_value=True))
+                s = v.name
+                h.add_control(Toggle(f"{ColorFormat.BLUE}" + str(s), default_value=True))
             else:
-                h.add_control(Toggle(f"{ColorFormat.RED}" + str(v), default_value=False))
+                h.add_control(Toggle(f"{ColorFormat.RED}" + str(v.name), default_value=False))
         user.send_form(h)
 
     def pload(self, user):
@@ -87,28 +108,34 @@ class Pluggy(Plugin):
         user.send_message(f"{ColorFormat.MATERIAL_GOLD}Loaded Plugins!{ColorFormat.RESET}")
 
     def auperm(self, user, data):
-        perm = str(data[0])
+        dat = json.loads(data)
+        perm = str(dat[0])
         p = user
-        t = self.server.get_player(str(data[1]))
-        if not t.has_permission(perm):
-            p.add_attachment(perm, True)
-            p.send_message(f"{ColorFormat.MATERIAL_GOLD}Permission {perm} has been set!")
+        t = self.server.get_player(str(dat[1]))
+        if t is not None:
+            if t.has_permission(perm):
+                t.add_attachment(self, perm, True)
+                p.send_message(f"{ColorFormat.MATERIAL_GOLD}Permission {perm} has been set!")
+            else:
+                p = self.server.get_player(user)
+                p.send_message(f"{ColorFormat.RED}Permission {perm} is already set!")
         else:
-            p = self.server.get_player(user)
-            p.send_message(f"{ColorFormat.RED}Permission {perm} is already set!")
-        pass
+            user.send_error_message("Please give a real user")
 
     def ruperm(self, user, data):
-        perm = str(data[0])
+        dat = json.loads(data)
+        perm = str(dat[0])
         p = user
-        t = self.server.get_player(str(data[1]))
-        if t.has_permission(perm):
-            t.add_attachment(perm, False)
-            p.send_message(f"{ColorFormat.MATERIAL_GOLD}Permission {perm} has been removed!")
+        t = self.server.get_player(str(dat[1]))
+        if t is not None:
+            if t.has_permission(perm):
+                t.add_attachment(self, perm, False)
+                p.send_message(f"{ColorFormat.MATERIAL_GOLD}Permission {perm} has been removed!")
+            else:
+                p = self.server.get_player(user)
+                p.send_message(f"{ColorFormat.RED}Permission {perm} is not assigned to Player!")
         else:
-            p = self.server.get_player(user)
-            p.send_message(f"{ColorFormat.RED}Permission {perm} is not assigned to Player!")
-        pass
+            user.send_error_message("Please give a online user")
 
     def aupermform(self, user):
         h = ModalForm(
@@ -135,9 +162,13 @@ class Pluggy(Plugin):
                 f"{ColorFormat.RED}Permission list closed"
             ),
         )
-        for v in info:
-            h.add_control(Label(str(v)))
-        user.send_form(h)
+        us = json.loads(info)
+        if self.server.get_player(str(us[0])) is not None:
+            for v in self.server.get_player(str(us[0])).effective_permissions:
+                h.add_control(Label(str(v.permission)))
+            user.send_form(h)
+        else:
+            user.send_error_message("User doesn't exist")
 
     def rupermform(self, user):
         h = ModalForm(
@@ -169,34 +200,36 @@ class Pluggy(Plugin):
         user.send_form(h)
 
     def pdload(self, user, data):
-        if data[0]:
-            if data[2]:
+        if data is not None and user.has_permission("pluggy.plugin.donwload"):
+            # for gin in enumerate(json.loads(data)):
+            gin = json.loads(data)
+            if str(gin[2]) is not None:
                 user.send_message(f"{ColorFormat.MATERIAL_GOLD}Downloading...")
-                try:
-                    if data[1]:
-                        url = "https://github.com/" + str(data[2]) + "/" + str(data[1]) + "/" + "endstone_" + str(data[0]).lower() + "-" + str(data(1)) + "-py2.py3-none-any.whl/"
-                        urllib.request.urlretrieve(url, "plugins/" + "endstone_" + str(data[0]).lower() + "-" + str(data(1)) + "-py2.py3-none-any.whl/")
+                if str(gin[1]) is not None:
+                    try:
+                        ginn = f'https://github.com/{str(gin[2])}/{str(gin[0])}/releases/download/{gin[1]}/endstone_{gin[0]}-{gin[1]}-py2.py3-none-any.whl/'
+                        dest = f'plugins\endstone_{gin[0]}-{gin[1]}-py2.py3-none-any.whl'
+                        urllib.request.urlretrieve(ginn, dest)
+                    except urllib.error.URLError as e:
+                        user.send_message((str(e)))
                     else:
-                        user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Please enter the version!")
-                except urllib.error.URLError as e:
-                    user.send_error_message(str(e))
-                    user.send_message(f"{ColorFormat.RED}Make sure the repo you are using has its tags formatted as the version\nfor example if it was version 0.1.0, it shouldn't say v0.1.0, it should say 0.1.0")
+                        user.send_message(f"{ColorFormat.MATERIAL_GOLD}Done{ColorFormat.RESET}")
                 else:
-                    user.send_message(f"{ColorFormat.MATERIAL_EMERALD}Done! Please the delete the current version and then click Plugin Full Load!")
+                    user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Please enter the version!")
             else:
                 user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Please enter the author name!")
         else:
-            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Please enter the plugin name!")
+            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Missing data!")
 
     def pdloadform(self, user):
         h = ModalForm(
             title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Plugin Downloader{ColorFormat.RESET}",
             controls=[
-                TextInput(placeholder="Plugin Name"),
-                TextInput(placeholder="Version"),
-                TextInput(placeholder="Author Name")
+                TextInput(placeholder="Joker"),
+                TextInput(placeholder="0.1.1"),
+                TextInput(placeholder="Cryotap")
             ],
-            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Download & Load",
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Download",
             on_submit=lambda player, data: self.pdload(user, data),
             on_close=lambda player: player.send_message(
                 f"{ColorFormat.RED}Downloader Closed"
@@ -210,10 +243,10 @@ class Pluggy(Plugin):
             controls=[
                 TextInput(placeholder="Plugin Name")
             ],
-            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Download & Load",
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Enable",
             on_submit=lambda player, data: self.penable(user, data),
             on_close=lambda player: player.send_message(
-                f"{ColorFormat.RED}Downloader Closed"
+                f"{ColorFormat.RED}Enabler Closed"
             ),
         )
         user.send_form(h)
@@ -224,38 +257,40 @@ class Pluggy(Plugin):
             controls=[
                 TextInput(placeholder="Plugin Name")
             ],
-            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Download & Load",
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Disable",
             on_submit=lambda player, data: self.pdisable(user, data),
             on_close=lambda player: player.send_message(
-                f"{ColorFormat.RED}Downloader Closed"
+                f"{ColorFormat.RED}Disabler Closed"
             ),
         )
         user.send_form(h)
         pass
 
     def penable(self, user, data):
-        if data[0]:
-            if self.server.plugin_manager.get_plugin(data[0]):
-                if not self.server.plugin_manager.is_plugin_enabled(data[0]):
-                    self.server.plugin_manager.enable_plugin(data[0])
-                    user.send_message(f"{ColorFormat.MATERIAL_GOLD}Plugin Enabled")
+        if data is not None:
+            for dat in json.loads(data):
+                if self.server.plugin_manager.get_plugin(str(dat)):
+                    if not self.server.plugin_manager.is_plugin_enabled(str(dat)):
+                        self.server.plugin_manager.enable_plugin(self.server.plugin_manager.get_plugin(str(dat)))
+                        user.send_message(f"{ColorFormat.MATERIAL_GOLD}Plugin Enabled")
+                    else:
+                        user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is already enabled!")
                 else:
-                    user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is already enabled!")
-            else:
-                user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin not loaded!")
+                    user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin not loaded!")
         else:
             user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin name please!")
 
     def pdisable(self, user, data):
-        if data[0]:
-            if self.server.plugin_manager.get_plugin(data[0]):
-                if self.server.plugin_manager.is_plugin_enabled(data[0]):
-                    self.server.plugin_manager.disable_plugin(data[0])
-                    user.send_message(f"{ColorFormat.MATERIAL_GOLD}Plugin Disabled")
+        if data is not None:
+            for dat in json.loads(data):
+                if self.server.plugin_manager.get_plugin(str(dat)):
+                    if self.server.plugin_manager.is_plugin_enabled(str(dat)):
+                        self.server.plugin_manager.disable_plugin(self.server.plugin_manager.get_plugin(str(dat)))
+                        user.send_message(f"{ColorFormat.MATERIAL_GOLD}Plugin Disabled")
+                    else:
+                        user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is already disabled!")
                 else:
-                    user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is already disabled!")
-            else:
-                user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is not loaded")
+                    user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin is not loaded")
         else:
             user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Plugin name please!")
 
@@ -268,39 +303,37 @@ class Pluggy(Plugin):
         user.send_message(f"{ColorFormat.MATERIAL_GOLD}Done!")
 
     def mainformcheck(self, user, sel):
-        if sel == "Plugin List":
+        print(sel)
+        if sel == 0:
             if user.has_permission("pluggy.list"):
                 self.plistform(user)
-        elif sel == "Plugin Disable":
+        elif sel == 1:
             if user.has_permission("pluggy.plugin.toggle"):
                 self.pdisableform(user)
-        elif sel == "Plugin Enable":
+        elif sel == 2:
             if user.has_permission("pluggy.plugin.toggle"):
                 self.penableform(user)
-        elif sel == "Plugin Mass Disable":
+        elif sel == 3:
             if user.has_permission("pluggy.plugin.toggle"):
                 self.pmdisable(user)
-        elif sel == "Plugin Mass Enable":
+        elif sel == 4:
             if user.has_permission("pluggy.plugin.toggle"):
                 self.pmenable(user)
-        elif sel == "Plugin Mass Load":
+        elif sel == 5:
             if user.has_permission("pluggy.plugin.toggle"):
                 self.pload(user)
-        elif sel == "Plugin Downloader":
-            if user.has_permission("pluggy.plugin.download"):
-                self.pdloadform(user)
-        elif sel == "User Perms":
+        elif sel == 6:
             if user.has_permission("pluggy.perms.list"):
                 self.lupermsform(user)
-        elif sel == "Add User Perms":
+        elif sel == 7:
             if user.has_permission("pluggy.perms.toggle"):
                 self.aupermform(user)
-        elif sel == "Experimental Features":
-            if user.has_permission("pluggy.plugin.toggle"):
-                user.send_message(f"{ColorFormat.MATERIAL_IRON}Nothing to see yet!")
-        else:
+        elif sel == 8:
             if user.has_permission("pluggy.perms.toggle"):
                 self.rupermform(user)
+        else:
+            if user.has_permission("pluggy.plugin.toggle"):
+                self.pdloadform(user)
 
     def mainnform(self, uname, cf=cf):
         h = ActionForm(
@@ -311,6 +344,10 @@ class Pluggy(Plugin):
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Disable{cf.RESET}",
                                   icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Enable{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Mass Disable{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Mass Enable{cf.RESET}",
                                   icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Plugin Mass Load{cf.RESET}",
                                   icon="https://www.iconfinder.com/icons/3911247/download/png/512"),
@@ -323,17 +360,15 @@ class Pluggy(Plugin):
                 ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Experimental Features{cf.RESET}",
                                   icon="https://www.iconfinder.com/icons/7479649/download/png/512")
             ],
-            on_submit=lambda player, selection: self.mainformcheck(uname, f"{selection}"),
+            on_submit=lambda player, selection: self.mainformcheck(uname, selection),
             on_close=lambda player: player.send_message(f"{ColorFormat.RED}Pluggy Menu closed!"),
         )
         uname.send_form(h)
 
     def on_command(self, sender: CommandSender, command: Command, args: list[str], cf=cf) -> bool:
         if command.name == "pluggy":
-            player = sender.as_player()
-            if player is not None:
-                p = self.server.get_player(sender)
-                self.mainnform(p)
+            if isinstance(sender, Player):
+                self.mainnform(sender)
                 return True
             else:
                 sender.send_error_message(f"{cf.MATERIAL_REDSTONE}" + "You must be a player to run this command")
