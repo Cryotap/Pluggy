@@ -5,9 +5,12 @@ from endstone.command import *
 from endstone.form import *
 from endstone.permissions import *
 from endstone import Player
+from endstone.event import *
+from endstone.event import event_handler
 import urllib.error
 import urllib.response
 import urllib.request
+import sqlite3
 
 
 class Pluggy(Plugin):
@@ -17,14 +20,261 @@ class Pluggy(Plugin):
         self.logger.info("on_load is called!")
 
     def on_enable(self) -> None:
-        self.logger.info("on_enable is called!")
+        self.logger.info("Enabled!!")
+        self.register_events(self)
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS pgroups (groups TEXT PRIMARY KEY, format TEXT)")
+        cursor.execute("CREATE TABLE IF NOT EXISTS playgroups (player TEXT PRIMARY KEY, groups TEXT)")
+        con.commit()
+        con.close()
 
     def on_disable(self) -> None:
         self.logger.info("on_disable is called!")
 
+    def applytags(self, msg, ha, player):
+        colorss = str(ha).replace("&", "§")
+        name = str(colorss).replace("{username}", str(player.name))
+        dimension = name.replace("{dimension}", str(player.location.dimension.type.name))
+        message = dimension.replace("{msg}", str(msg))
+        return str(message)
+
+    def checkingroup(self, user):
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        rows = cursor.execute('select player from playgroups where player =?', (user,)).fetchall()
+        con.commit()
+        con.close()
+        return rows
+
+    def checkingroupname(self, user):
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        rows = cursor.execute('select groups from playgroups where player =?', (user,)).fetchall()
+        con.commit()
+        con.close()
+        return rows
+
+    def checkingroupformat(self, group):
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        rows = cursor.execute('select format from pgroups where groups =?', (group,)).fetchall()
+        con.commit()
+        con.close()
+        return rows
+
+    def listgroups(self):
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        rows = cursor.execute('select groups from pgroups').fetchall()
+        con.commit()
+        con.close()
+        return rows
+
+    def listgroupedusers(self):
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        rows = cursor.execute('select player from playgroups').fetchall()
+        con.commit()
+        con.close()
+        return rows
+
+    def checkgroup(self, group):
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        rows = cursor.execute('select groups from pgroups where groups =?', (group,)).fetchall()
+        con.commit()
+        con.close()
+        return rows
+
+    def groupsadduser(self, us, data):
+        if data is not None:
+            d = json.loads(data)
+            usr = str(d[0])
+            group = str(d[1])
+            con = sqlite3.connect('playgroups.db', timeout=3)
+            cursor = con.cursor()
+            cursor.execute('delete from playgroups where player =?', (usr,))
+            cursor.execute("""INSERT INTO playgroups(player,groups) VALUES (?, ?)""", (usr, group))
+            con.commit()
+            con.close()
+            us.send_message(f"{ColorFormat.GREEN}Done")
+        else:
+            us.send_message(f"{ColorFormat.RED}Missing Data")
+
+    def groupsremovealluser(self, user):
+        con = sqlite3.connect('playgroups.db', timeout=3)
+        cursor = con.cursor()
+        cursor.execute('drop table playgroups')
+        cursor.execute("CREATE TABLE IF NOT EXISTS playgroups (player TEXT PRIMARY KEY, groups TEXT)")
+        con.commit()
+        con.close()
+        user.send_message(f"{ColorFormat.RED}Removed all users!")
+
+    def groupsremoveuser(self, us, data):
+        if data is not None:
+            userr = json.loads(data)
+            usr = str(userr[0])
+            con = sqlite3.connect('playgroups.db', timeout=3)
+            cursor = con.cursor()
+            cursor.execute('delete from playgroups where player =?', (usr,))
+            con.commit()
+            con.close()
+            us.send_message(f"{ColorFormat.GREEN}Success!")
+
+    def groupsaddformat(self, user, data):
+        if data is not None:
+            dat = json.loads(data)
+            group = str(dat[1]).lower()
+            formatss = str(dat[2])
+            con = sqlite3.connect('playgroups.db', timeout=3)
+            cursor = con.cursor()
+            cursor.execute('delete from pgroups where groups =?', (group,))
+            cursor.execute("""INSERT INTO pgroups(groups,format) VALUES (?, ?)""", (group, formatss))
+            con.commit()
+            con.close()
+            user.send_message(f"{formatss}{ColorFormat.GREEN}has been added!")
+        else:
+            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Group name please!")
+
+    def groupsadd(self, user, data):
+        if data is not None:
+            dat = json.loads(data)
+            con = sqlite3.connect('playgroups.db', timeout=3)
+            cursor = con.cursor()
+            cursor.execute('delete from pgroups where groups =?', (str(dat[0]).lower(),))
+            cursor.execute("""INSERT INTO pgroups(groups) VALUES (?)""", (str(dat[0]).lower(),))
+            con.commit()
+            con.close()
+            user.send_message(f"{ColorFormat.BLUE}{str(dat[0]).lower()}{ColorFormat.GREEN} has been added!")
+        else:
+            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Group name please!")
+
+    def groupsremove(self, user, data):
+        if data is not None:
+            dat = json.loads(data)
+            con = sqlite3.connect('playgroups.db', timeout=3)
+            cursor = con.cursor()
+            cursor.execute('delete from pgroups where groups =?', (str(dat[0]).lower(),))
+            con.commit()
+            con.close()
+            user.send_message(f"{ColorFormat.BLUE}{str(dat[0]).lower()}{ColorFormat.RED} has been removed!")
+        else:
+            user.send_message(f"{ColorFormat.MATERIAL_REDSTONE}Group name please!")
+
+    def groupschangeformatform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Group Fomratter{ColorFormat.RESET}",
+            controls=[
+                Label(f"{ColorFormat.BLUE}" + "Tags: {msg}, {dimension}, {username}"),
+                TextInput(placeholder="Group Name"),
+                TextInput(placeholder="&l&e[{dimension}]&a[Helper]&r&a {username} &2> &a{msg}")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Change Format",
+            on_submit=lambda player, data: self.groupsaddformat(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Group Fomratter Closed"
+            ),
+        )
+        user.send_form(h)
+
+    def groupsremoveuserform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}User Un-Grouper{ColorFormat.RESET}",
+            controls=[
+                TextInput(placeholder="Player Nme")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Ungroup",
+            on_submit=lambda player, data: self.groupsremoveuser(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Un-Grouper Closed"
+            ),
+        )
+        user.send_form(h)
+
+    def groupsadduserform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}User Grouper{ColorFormat.RESET}",
+            controls=[
+                TextInput(placeholder="Player Name"),
+                TextInput(placeholder="Group Name")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Add",
+            on_submit=lambda player, data: self.groupsadduser(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Grouper Closed"
+            ),
+        )
+        user.send_form(h)
+
+    def groupsremoveform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Group Remover{ColorFormat.RESET}",
+            controls=[
+                TextInput(placeholder="Group Nme (Don't use color color)")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Remove",
+            on_submit=lambda player, data: self.groupsremove(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Group Remover Closed"
+            ),
+        )
+        user.send_form(h)
+
+    def groupsaddform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Group Adder{ColorFormat.RESET}",
+            controls=[
+                TextInput(placeholder="Group Name (Don't use color color)")
+            ],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Add",
+            on_submit=lambda player, data: self.groupsadd(user, data),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Group Adder Closed"
+            ),
+        )
+        user.send_form(h)
+
+    def groupslistform(self, user):
+        h = ModalForm(
+            title=f"{ColorFormat.BOLD}{ColorFormat.MATERIAL_AMETHYST}Group List{ColorFormat.RESET}",
+            controls=[],
+            submit_button=f"{ColorFormat.MATERIAL_EMERALD}Done",
+            on_submit=lambda player, data: player.send_message(""),
+            on_close=lambda player: player.send_message(
+                f"{ColorFormat.RED}Groups list closed"
+            ),
+        )
+        for v in self.listgroups():
+            a = str(v).strip("('',)")
+            h.add_control(Label(a))
+        user.send_form(h)
+
+    @event_handler
+    def chat_event(self, event: PlayerChatEvent):
+        player = event.player
+        usr = player.name
+        msg = event.message
+        if self.checkingroup(usr):
+            e = self.checkingroup(usr)[0]
+            e = str(e).strip("('',)")
+            if e == usr:
+                groupp = self.checkingroupname(usr)
+                for v in self.listgroups():
+                    a = str(v).strip("('',)")
+                    b = str(groupp[0]).strip("('',)")
+                    if a == b:
+                        if self.checkgroup(b):
+                            gformat = self.checkingroupformat(b)
+                            gformat = str(gformat[0]).strip("('',)")
+                            print(gformat)
+                            newmessage = self.applytags(str(msg), str(gformat), player)
+                            self.server.broadcast_message(newmessage)
+                            event.cancelled = True
+
     name = "pluggy"
     prefix = "Pluggy"
-    version = "0.1.0"
+    version = "0.1.1"
     api_version = "0.5"
     description = "Python plugin manager for Endstone!"
 
@@ -59,6 +309,34 @@ class Pluggy(Plugin):
         },
         "pluggy.perms.toggle": {
             "description": "Allow users to add and remove user perms.",
+            "default": "op",
+        },
+        "pluggy.experimental": {
+            "description": "Allow users to look at the experimental features.",
+            "default": True,
+        },
+        "pluggy.groups.addgroups": {
+            "description": "Allow users to add groups.",
+            "default": "op",
+        },
+        "pluggy.groups.removegroups": {
+            "description": "Allow users to delete groups.",
+            "default": "op",
+        },
+        "pluggy.groups.list": {
+            "description": "Allow users to view all groups.",
+            "default": True,
+        },
+        "pluggy.groups.adduser": {
+            "description": "Allow users to add others to groups.",
+            "default": "op",
+        },
+        "pluggy.groups.removeuser": {
+            "description": "Allow users to remove others from groups.",
+            "default": "op",
+        },
+        "pluggy.groupformat.change": {
+            "description": "Allow users to change the group format.",
             "default": "op",
         },
     }
@@ -332,8 +610,61 @@ class Pluggy(Plugin):
             if user.has_permission("pluggy.perms.toggle"):
                 self.rupermform(user)
         else:
-            if user.has_permission("pluggy.plugin.toggle"):
+            if user.has_permission("pluggy.experimental"):
+                self.experimentalform(user)
+
+    def experimentalformcheck(self, user, sel):
+        print(sel)
+        if sel == 0:
+            if user.has_permission("pluggy.plugin.donwload"):
                 self.pdloadform(user)
+        elif sel == 1:
+            if user.has_permission("pluggy.groups.list"):
+                self.groupslistform(user)
+        elif sel == 2:
+            if user.has_permission("pluggy.groups.addgroups"):
+                self.groupsaddform(user)
+        elif sel == 3:
+            if user.has_permission("pluggy.groups.removegroups"):
+                self.groupsremoveform(user)
+        elif sel == 4:
+            if user.has_permission("pluggy.groups.adduser"):
+                self.groupsadduserform(user)
+        elif sel == 5:
+            if user.has_permission("pluggy.groups.removeuser"):
+                self.groupsremoveuserform(user)
+        elif sel == 6:
+            if user.has_permission("pluggy.groups.removeuser"):
+                self.groupsremovealluser(user)
+        elif sel == 7:
+            if user.has_permission("pluggy.groupformat.change"):
+                self.groupschangeformatform(user)
+
+    def experimentalform(self, uname, cf=cf):
+        h = ActionForm(
+            title=str(f"{cf.BOLD}{cf.MATERIAL_AMETHYST}Experimental Menu{cf.RESET}"),
+            buttons=[
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Downloader{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/143830/download/png/128"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}List Groups{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/6083/download/png/128"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Add Group{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/5954/download/png/128"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Remove Group{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/6010/download/png/128"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Group User{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/48810/download/png/128"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Ungroup User{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/11372/download/png/48"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Ungroup All{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/11372/download/png/48"),
+                ActionForm.Button(f"{cf.BOLD}{cf.LIGHT_PURPLE}Format Changer{cf.RESET}",
+                                  icon="https://www.iconfinder.com/icons/9004725/download/png/512")
+            ],
+            on_submit=lambda player, selection: self.experimentalformcheck(uname, selection),
+            on_close=lambda player: player.send_message(f"{ColorFormat.RED}Experimental Menu closed!"),
+        )
+        uname.send_form(h)
 
     def mainnform(self, uname, cf=cf):
         h = ActionForm(
